@@ -286,20 +286,31 @@ class RichHelpFormatter(argparse.HelpFormatter):
                 options.append(action) if action.option_strings else positionals.append(action)
         pos = start
 
-        def find_span(_string: str) -> list[tuple[int, int]]:
+        def find_span(_string: str, pos, nargs: int | str | None = None) -> list[tuple[int, int]]:
             stripped = r.strip_control_codes(_string)
-            # Create regex pattern
-            pattern = re.escape(stripped).replace("\\ ", "((?:\n\\s*))?\\s", 1)
+            # Correction for parenthesis in optional metavars. 
+            # We create it so it's simple to write the same logic for all cases of nargs
+            escaped = re.escape(stripped)
+            splitted = re.escape(stripped).split('\\ ')
+            if nargs == "?":
+                pos+=1
+                subpattern = [''.join([escaped[:2],'(',escaped[2:-2],')',escaped[-2:]])]
+            elif nargs == "*":
+                pos+=1
+                if len(splitted) == 3:
+                    subpattern = [''.join([m[:2],'(',m[2:],')']) for m in splitted[:-1]] + [''.join(['(',m[:-4],')',m[-4:]]) for m in splitted[-1:]]
+                else:
+                    subpattern = [''.join([m[:2],'(',m[2:],')']) for m in splitted[:-1]] + [''.join(['(',m[:-2],')',m[-2:]]) for m in splitted[-1:]]
+            elif nargs == "+":
+                subpattern = [''.join(['(',splitted[0],')'])] + [''.join([m[:2],'(',m[2:],')']) for m in splitted[1:-1]] + [''.join(['(',splitted[-1][:-2],')',splitted[-1][-2:]])]
+            else:
+                subpattern = [''.join(['(',m,')']) for m in splitted]
+            pattern = '(?:\n\\s*)?\\s'.join(subpattern)
             try:
                 match = list(
                     filter(lambda match: match.start() >= pos, re.finditer(pattern, text))
                 )[0]
-                if len(match.groups()) == 0 or match.groups() == (
-                    None,
-                ):  # Metavar not in multiple lines
-                    boundaries = [(match.start(), match.end())]
-                else:  # Metavar in multiple lines
-                    boundaries = [(match.start(), match.start(1)), (match.end(1) + 1, match.end())]
+                boundaries = [(match.start(i), match.end(i)) for i in range(1,len(match.groups())+1)]
             except IndexError as err:
                 raise ValueError(f"'{stripped}' not in usage text") from err
             return boundaries
@@ -309,26 +320,25 @@ class RichHelpFormatter(argparse.HelpFormatter):
                 usage = action.format_usage()
                 if isinstance(action, argparse.BooleanOptionalAction):
                     for option_string in action.option_strings:
-                        start, end = find_span(option_string)[0]
+                        start, end = find_span(option_string,pos)[0]
                         yield r.Span(start, end, "argparse.args")
                         pos = end + 1
                     continue
             else:  # pragma: <3.9 cover
                 usage = action.option_strings[0]
-            start, end = find_span(usage)[0]
+            start, end = find_span(usage,pos)[0]
             yield r.Span(start, end, "argparse.args")
             if action.nargs != 0:
                 metavar = self._format_args(action, self._get_default_metavar_for_optional(action))
-                boundaries_metavar = find_span(metavar)
-                if len(boundaries_metavar) == 1:
-                    end = boundaries_metavar[0][1]
-                    yield r.Span(boundaries_metavar[0][0], end, "argparse.metavar")
-                else:
-                    end = boundaries_metavar[1][1]
-                    yield r.Span(
-                        boundaries_metavar[0][0], boundaries_metavar[0][1], "argparse.metavar"
-                    )
-                    yield r.Span(boundaries_metavar[1][0], end, "argparse.metavar")
+                boundaries_metavar = find_span(metavar, pos, nargs=action.nargs)
+                end = boundaries_metavar[-1][1]
+                if isinstance(action.nargs, str):
+                    if action.nargs == "*" and len(boundaries_metavar) == 3:
+                        end += 2
+                    else:
+                        end += 1
+                for bound in boundaries_metavar:
+                    yield r.Span(bound[0], bound[1], "argparse.metavar")
             pos = end + 1
         for action in positionals:  # positionals come at the end
             metavar = self._get_default_metavar_for_positional(action)
@@ -352,7 +362,7 @@ class RichHelpFormatter(argparse.HelpFormatter):
                 usage = self._format_args(action, metavar)
                 nargs = 1
             for _ in range(nargs):
-                start, end = find_span(usage)[0]
+                start, end = find_span(usage,pos)[0]
                 yield r.Span(start, end, "argparse.args")
                 pos = end + 1
 

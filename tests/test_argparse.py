@@ -1085,10 +1085,10 @@ def test_usage_metavar_multiple_lines():
     # Cannot use "clean" as indentation is part of the string itself
     expected_usage_text = """\x1b[38;5;208mUsage:\x1b[0m \x1b[38;5;244mPROG\x1b[0m
        [\x1b[36m-h\x1b[0m]
-       [\x1b[36m--option1\x1b[0m \x1b[38;5;36mmetavar1 [metavar2 ...]\x1b[0m
+       [\x1b[36m--option1\x1b[0m \x1b[38;5;36mmetavar1\x1b[0m [\x1b[38;5;36mmetavar2\x1b[0m \x1b[38;5;36m...\x1b[0m]
        |
        \x1b[36m--option2\x1b[0m
        \x1b[38;5;36mmetavar3\x1b[0m
-       \x1b[38;5;36m[metavar4 ...]\x1b[0m]
+       [\x1b[38;5;36mmetavar4\x1b[0m \x1b[38;5;36m...\x1b[0m]]
        [\x1b[36m--option3\x1b[0m \x1b[38;5;36mOPTION3\x1b[0m]\n"""
     assert usage_text == expected_usage_text
