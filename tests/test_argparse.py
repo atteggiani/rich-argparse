@@ -434,8 +434,8 @@ def test_actions_spans_in_usage():
 
     \x1b[38;5;208mOptional Arguments:\x1b[0m
       \x1b[36m-h\x1b[0m, \x1b[36m--help\x1b[0m            \x1b[39mshow this help message and exit\x1b[0m
-      \x1b[36m--opt\x1b[0m \x1b[38;5;36m[OPT]\x1b[0m
-      \x1b[36m--opts\x1b[0m \x1b[38;5;36mOPTS [OPTS ...]\x1b[0m
+      \x1b[36m--opt\x1b[0m [\x1b[38;5;36mOPT\x1b[0m]
+      \x1b[36m--opts\x1b[0m \x1b[38;5;36mOPTS\x1b[0m [\x1b[38;5;36mOPTS\x1b[0m \x1b[38;5;36m...\x1b[0m]
     """
     assert parser.format_help() == clean(expected_help_output)
 
@@ -1135,3 +1135,69 @@ def test_usage_metavar_multiple_lines():
        \x1b[38;5;36mMET2\x1b[0m
        \x1b[38;5;36mMET3\x1b[0m]\n"""
     assert usage_text == expected_usage_text
+
+
+@pytest.mark.usefixtures("force_color")
+def test_help_metavars():
+    parser = argparse.ArgumentParser(prog="PROG", formatter_class=RichHelpFormatter)
+    parser.add_argument(
+        "--op1",
+        metavar="[MET]",
+        nargs="?",
+    )
+    parser.add_argument(
+        "--op2",
+        metavar=("[[[MET1", "[MET2"),
+        nargs="*",
+    )
+    parser.add_argument(
+        "--op3",
+        nargs="*",
+    )
+    parser.add_argument(
+        "--op4",
+        metavar=("MET1", "MET2"),
+        nargs="+",
+    )
+    parser.add_argument(
+        "--op5",
+        nargs="+",
+    )
+    parser.add_argument(
+        "--op6",
+        nargs=2,
+    )
+    parser.add_argument(
+        "--op7",
+        metavar=("MET1", "MET2", "MET3"),
+        nargs=3,
+    )
+
+    if sys.version_info < (3, 9):  # pragma: <3.9 cover
+        op3_metavar = "[\x1b[38;5;36mOP3\x1b[0m [\x1b[38;5;36mOP3\x1b[0m \x1b[38;5;36m...\x1b[0m]]"
+    else:  # pragma: >=3.9 cover
+        op3_metavar = "[\x1b[38;5;36mOP3\x1b[0m \x1b[38;5;36m...\x1b[0m]"
+
+    help_text = parser.format_help()
+    # Cannot use "clean" as indentation is part of the string itself
+    expected_help_text = f"""\
+    \x1b[38;5;208mUsage:\x1b[0m \x1b[38;5;244mPROG\x1b[0m [\x1b[36m-h\x1b[0m] \
+    [\x1b[36m--op1\x1b[0m [\x1b[38;5;36m[MET]\x1b[0m] [\x1b[36m--op2\x1b[0m \
+    [\x1b[38;5;36m[[[MET1\x1b[0m [\x1b[38;5;36m[MET2\x1b[0m \x1b[38;5;36m...\x1b[0m]]] \
+    [\x1b[36m--op3\x1b[0m {op3_metavar}] [\x1b[36m--op4\x1b[0m \x1b[38;5;36mMET1\x1b[0m \
+    [\x1b[38;5;36mMET2\x1b[0m \x1b[38;5;36m...\x1b[0m]] [\x1b[36m--op5\x1b[0m \x1b[38;5;36mOP5\x1b[0m \
+    [\x1b[38;5;36mOP5\x1b[0m \x1b[38;5;36m...\x1b[0m]] [\x1b[36m--op6\x1b[0m \x1b[38;5;36mOP6\x1b[0m \
+    \x1b[38;5;36mOP6\x1b[0m] [\x1b[36m--op7\x1b[0m \x1b[38;5;36mMET1\x1b[0m \x1b[38;5;36mMET2\x1b[0m \
+    \x1b[38;5;36mMET3\x1b[0m]
+
+    \x1b[38;5;208mOptional Arguments:\x1b[0m 
+      \x1b[36m-h\x1b[0m, \x1b[36m--help\x1b[0m            show this help message and exit
+      \x1b[36m--op1h\x1b[0m [\x1b[38;5;36m[MET]\x1b[0m]
+      \x1b[36m--op2h\x1b[0m [\x1b[38;5;36m[[[MET1\x1b[0m [\x1b[38;5;36m[MET2\x1b[0m \x1b[38;5;36m...\x1b[0m]]
+      \x1b[36m--op3h\x1b[0m {op3_metavar}
+      \x1b[36m--op4h\x1b[0m \x1b[38;5;36mMET1\x1b[0m [\x1b[38;5;36mMET2\x1b[0m \x1b[38;5;36m...\x1b[0m]
+      \x1b[36m--op5h\x1b[0m \x1b[38;5;36mOP5\x1b[0m [\x1b[38;5;36mOP5\x1b[0m \x1b[38;5;36m...\x1b[0m]
+      \x1b[36m--op6h\x1b[0m \x1b[38;5;36mOP6\x1b[0m \x1b[38;5;36mOP6\x1b[0m
+      \x1b[36m--op7h\x1b[0m \x1b[38;5;36mMET1\x1b[0m \x1b[38;5;36mMET2\x1b[0m \x1b[38;5;36mMET3\x1b[0m
+    """
+    assert help_text == clean(expected_help_text)
